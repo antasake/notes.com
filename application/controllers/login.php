@@ -1,6 +1,11 @@
 <?php 
 
 class Login extends CI_Controller {
+	public function __construct()
+	{
+		parent::__construct();
+		$this->load->model('membership_model');
+	}
 	
 	function index()
 	{
@@ -105,8 +110,132 @@ class Login extends CI_Controller {
 		{
 			return FALSE;
 		}
+		
+	}
+		
+	function reset_password()
+	{
+		if(isset($_POST['email']) || (!empty($_POST['email'])))
+		{
+			$this->load->library('form_validation');
+			$this->form_validation->set_rules('email','Email Address','trim|required|min_length[6]|max_length[50],valid_email|xss_clean');
+			
+			if ($this->form_validation->run()==FALSE)
+			{
+				$this->load->view('view_reset_password',array('error'=>'Please supply a valid email address.'));
+			}
+			else
+			{
+				$email = trim($this->input->post('email'));
+				$this->load->model('membership_model');
+				$result = $this->membership_model->email_exists($email);
+				
+				if($result)
+				{
+					$this->send_reset_password_email($email,$result);
+					$this->load->view('include/header');
+					$this->load->view('view_reset_password_sent',array('email'=>$email));
+					$this->load->view('include/footer');
+				}
+				else
+				{
+					$this->load->view('include/header');
+					$this->load->view('view_reset_password',array('error'=>'Email address not registered with Friends&Notes'));
+					$this->load->view('include/footer');
+				}
+			}
+		}
+		else
+		{
+			$this->load->view('include/header');
+			$this->load->view('view_reset_password');
+			$this->load->view('include/footer');
+		}
 	}
 	
+	function reset_password_form($email,$email_code)
+	{
+		if(isset($email,$email_code))
+		{
+			$email=trim($email);
+			$email_hash=sha1($email.$email_code);
+			$this->load->model('membership_model');
+			$verified=$this->membership_model->verify_reset_password_code($email,$email_code);
+			
+			if($verified)
+			{
+				$this->load->view('include/header');
+				$this->load->view('view_update_password',array('email_hash'=>$email_hash,'email_code'=>$email_code,'email'=>$email));
+				$this->load->view('include/footer');
+			}
+			else
+			{
+				$this->load->view('include/header');
+				$this->load->view('view_reset_password',array('error'=> 'There was a problem with your link. Please click it again or request
+									to reset your password again','email'=>$email));
+				$this->load->view('include/footer');
+			}
+		}
+	}
+	
+	function update_password()
+	{
+		
+		$this->load->library('form_validation');
+		
+		$this->form_validation->set_rules('email_hash','Email Hash','trim|required');
+		$this->form_validation->set_rules('email','Email','trim|required|valid_email|xss_clean');
+		$this->form_validation->set_rules('password','Password','trim|required|min_length[6]|max_length[50]|matches[password_conf]|xss_clean');
+		$this->form_validation->set_rules('password_conf','Confirmed Password','trim|required|min_length[6]|max_length[50]|xss_clean');
+	
+		if($this->form_validation->run() ==FALSE)
+		{
+			$this->load->view('include/header');
+			$this->load->view('view_update_password');
+			$this->load->view('include/footer');
+		}
+		else
+		{
+			$this->load->model('membership_model');
+			$result=$this->membership_model->update_password();
+			
+			if($result)
+			{
+				$this->load->view('include/header');
+				$this->load->view('view_update_password_success');
+				$this->load->view('include/menu');
+				$this->load->view('include/footer');
+			}
+			else
+			{
+				$this->load->view('include/header');
+				$this->load->view('view_update_password',array('error' => 'Problem updating your password.'));
+				$this->load->view('include/menu');
+				$this->load->view('include/footer');
+			}
+		}
+	}
+	
+	function send_reset_password_email($email,$first_name)
+	{
+		$this->load->library('email');
+		$email_code = md5($this->config->item('salt').$first_name);
+		
+		$this->email->from('demiantests@gmail.com', 'Friends&Notes');
+		$this->email->to($email);
+		$this->email->subject('Please reset your password at Friends&Notes');
+		
+		$message ='<html></head><body>';
+		$message .='<p>Dear ' . $first_name . ',</p> ';
+		$message .='You have requested to reset your password. Please <strong><a href="' . base_url() .'login/reset_password_form/' . $email . '/'. 
+				 $email_code . '">click here</a></strong> to reset your password.</p>';
+		$message .='<p>Thank you!</p>';
+		$message .='<p>Friends&Notes</p>';
+		$message .='</body></html>';
+		
+		$this->email->message($message);
+		$this->email->send();
+	}
 	
 }
 ?>

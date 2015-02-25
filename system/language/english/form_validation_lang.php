@@ -25,6 +25,5 @@ $lang['less_than']			= "The %s field must contain a number less than %s.";
 $lang['greater_than']		= "The %s field must contain a number greater than %s.";
 $lang['check_if_username_exists'] = "Sorry, the username is already taken.";
 $lang['check_if_email_exists']	="Sorry, the email has already been registered.";
-
 /* End of file form_validation_lang.php */
 /* Location: ./system/language/english/form_validation_lang.php */
